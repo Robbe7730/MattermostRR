@@ -3,7 +3,7 @@
 import mattermost
 
 from flask import request
-from flask import Flask
+from flask import Flask, jsonify
 app = Flask(__name__)
 
 import configparser
@@ -56,6 +56,29 @@ def randomkick():
     # Kick them
     mm.remove_user_from_channel(channel, victim["id"])
     return f"You just killed @{victim['username']}, do you feel happy now?"
+
+@app.route("/russianroulette", methods=["POST"])
+def russianroulette():
+    # Make sure the bot is in the channel
+    channel = request.form["channel_id"]
+    try:
+        mm.add_user_to_channel(channel, user["id"])
+    except mattermost.ApiException:
+        return "I do not have permission to join this channel"
+
+    # 1/6 chance...
+    if random.randint(0,6) == 4:
+        message = f"BANG, @{request.form['user_name']} shot themselves."
+
+        # Kick the user
+        mm.remove_user_from_channel(channel, request.form["user_id"])
+    else:
+        message = "_click_"
+
+    return jsonify({
+            "response_type": "in_channel", 
+            "text": message
+    })
 
 # Based on the mattermost library, but that has no "since" argument
 def get_posts_for_channel(channel_id, since):
