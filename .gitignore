@@ -1,2 +1,4 @@
 config.ini
 venv
+*.swp
+__pycache__
