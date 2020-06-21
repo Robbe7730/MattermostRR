@@ -26,7 +26,7 @@ active_users_since = int(config["russianroulette"]["active_users_since_minutes"]
 def eprint(msg):
     print(msg, file=sys.stderr)
 
-@app.route("/russianroulette", methods=["POST"])
+@app.route("/randomkick", methods=["POST"])
 def russian_roulette():
     try:
         # Make sure the bot is in the channel
@@ -45,11 +45,11 @@ def russian_roulette():
     victim = mm.get_user(random.sample(recent_users, 1)[0])
 
     # Notify the channel
-    mm.create_post(channel, f"BANG, goodbye @{victim['username']}")
+    mm.create_post(channel, f"Goodbye @{victim['username']}")
 
     # Kick them
     mm.remove_user_from_channel(channel, victim["id"])
-    return "The gun was fired"
+    return f"You just killed @{victim['username']}, do you feel happy now?"
 
 # Based on the mattermost library, but that has no "since" argument
 def get_posts_for_channel(channel_id, since):
