@@ -27,10 +27,10 @@ def eprint(msg):
     print(msg, file=sys.stderr)
 
 @app.route("/randomkick", methods=["POST"])
-def russian_roulette():
+def randomkick():
+    # Make sure the bot is in the channel
+    channel = request.form["channel_id"]
     try:
-        # Make sure the bot is in the channel
-        channel = request.form["channel_id"]
         mm.add_user_to_channel(channel, user["id"])
     except mattermost.ApiException:
         return "I do not have permission to join this channel"
@@ -41,8 +41,14 @@ def russian_roulette():
     recent_posts = list(get_posts_for_channel(channel, curr_millis-delay_millis))
     recent_users = set([x["user_id"] for x in recent_posts if x["user_id"] != user["id"]])
 
+    # Get all channel members
+    channel_members = set([x["user_id"] for x in mm.get_channel_members(channel)])
+
+    # Find the intersection
+    possible_victims = channel_members & recent_users
+
     # Pick one
-    victim = mm.get_user(random.sample(recent_users, 1)[0])
+    victim = mm.get_user(random.sample(possible_victims, 1)[0])
 
     # Notify the channel
     mm.create_post(channel, f"Goodbye @{victim['username']}")
