@@ -114,19 +114,20 @@ def duel():
         return "I do not have permission to join this channel"
 
 
-    async with GAME_MUTEX:
+    await GAME_MUTEX.acquire()
+    try:
         mm.create_post(channel, f"@{caller['username']} challenges @{victim['username']} for a game of russian roulette")
 
         players = [victim,caller]
         game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
 
-        while(game_tick <= 0):
+        while(game_tick > 0):
 
             player = players[game_tick % 2]
 
             # 1/6 chance...
             if random.randint(0,5) == 0 or game_tick == 1:
-                mm.create_post(channel, f"@{player['username']} takes the gun... BANG")
+                mm.create_post(channel, f"@{player['username']} takes the gun... **BANG**!")
                 game_tick = 0
             else:
                 mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
@@ -134,8 +135,10 @@ def duel():
                 time.sleep(1)
 
         mm.remove_user_from_channel(channel, player["id"])
+    finally:
+        GAME_MUTEX.release()
 
-    return jsonify({"text": "https://www.youtube.com/watch?v=h1PfrmCGFnk"})     
+    return "https://www.youtube.com/watch?v=h1PfrmCGFnk"   
 
 # Based on the mattermost library, but that has no "since" argument
 def get_posts_for_channel(channel_id, since):
