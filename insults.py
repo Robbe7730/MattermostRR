@@ -1,5 +1,5 @@
-list_of_insults =
-    [ "fart smeller"
+list_of_insults = [
+    "fart smeller"
     , "I can't tell if I'm talking to your face or your asshole"
     , "dickweed"
     , "buttpirate"

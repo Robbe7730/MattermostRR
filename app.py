@@ -261,7 +261,7 @@ def insult():
 
     return jsonify({
             "response_type": "in_channel", 
-            "text": f"@{request.form['text']}, {random.choice(list_of_insults)}"
+            "text": f"{request.form['text']}, {random.choice(list_of_insults)}"
     })
 
 
