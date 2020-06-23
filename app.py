@@ -233,7 +233,7 @@ def duel():
         db["starters"][starter_name] += 1
 
         # Loser duel count
-        loser_name = player["user_name"]
+        loser_name = player["username"]
         if loser_name not in db["losers"]:
             db["losers"][loser_name] = 0
         db["losers"][loser_name] += 1
@@ -244,18 +244,11 @@ def duel():
 def stats():
     ret = {}
     with shelve.open('russianroulette') as db:
-        ret['channels_rr'] = db['channels']
-        ret['totals_rr'] = db['totals']
-        ret['deaths_rr'] = db['deaths']
+        ret['rr'] = dict(db)
     with shelve.open('randomkick') as db:
-        ret['channels_rk'] = db['channels']
-        ret['victims_rk'] = db['victims']
-        ret['kickers_rk'] = db['kickers']
+        ret['randomkick'] = dict(db)
     with shelve.open('duel') as db:
-        ret['channels_duel'] = db['channels']
-        ret['victims_duel'] = db['victims']
-        ret['starters_duel'] = db['starters']
-        ret['losers_duel'] = db['losers']
+        ret['duel'] = dict(db)
     return jsonify(ret)
 
 # Based on the mattermost library, but that has no "since" argument
