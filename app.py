@@ -23,8 +23,8 @@ mm = mattermost.MMApi(config["mattermost"]["url"])
 mm.login(bearer=config["mattermost"]["token"])
 user = mm.get_user()
 
-# Setup russian roulette config
-active_users_since = int(config["russianroulette"]["active_users_since_minutes"])
+# Setup randomkick config
+active_users_since = int(config["randomkick"]["active_users_since_minutes"])
 
 def eprint(msg):
     print(msg, file=sys.stderr)
@@ -94,7 +94,7 @@ def duel():
 
     # Verify that there is an argument (the user to pass the bomb to)
     if victim_name == '':
-        return "Use /rr (otheruser) to challenge another user to a game of russian roulette"
+        return "Use /duel (otheruser) to challenge another user to a game of russian roulette"
 
     # Remove leading @
     if victim_name[0] == "@":
@@ -114,13 +114,14 @@ def duel():
         return "I do not have permission to join this channel"
 
 
-    async with GAME_MUTEX:
-        mm.create_post(channel, f"@{caller['username']} challenges @{victim['username']} for a game of russian roulette")
+    with GAME_MUTEX:
+        mm.create_post(channel, f"@{caller_name} challenges @{victim['username']} for a game of russian roulette")
 
-        players = [victim,caller]
+        # If it ducks like a quack
+        players = [victim,{"username": caller_name, "id": caller}]
         game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
 
-        while(game_tick <= 0):
+        while(game_tick > 0):
 
             player = players[game_tick % 2]
 
@@ -131,7 +132,7 @@ def duel():
             else:
                 mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
                 game_tick -= 1
-                time.sleep(1)
+                time.sleep(3)
 
         mm.remove_user_from_channel(channel, player["id"])
 
