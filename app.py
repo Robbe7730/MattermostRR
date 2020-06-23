@@ -12,6 +12,8 @@ import sys
 import time
 import random
 
+from insults import list_of_insults
+
 GAME_MUTEX = Lock()
 
 # Read in the config
@@ -150,6 +152,41 @@ def stats():
         ret['victims_rk'] = db['victims']
         ret['kickers_rk'] = db['kickers']
     return jsonify(ret)
+
+@app.route("/insult", methods=["POST"])
+def insult():
+
+    # Get the victim
+    victim_name = request.form['text']
+
+    # Verify that there is an argument
+    if victim_name == '':
+        return "Use /insult (name) to insult another user"
+
+    # Remove leading @
+    if victim_name[0] == "@":
+        victim_name = victim_name[1:]
+
+    # Try to find the user
+    try:
+        victim = mm.get_user_by_username(victim_name)
+    except mattermost.ApiException:
+        return f"Could not find the user '{victim_name}'"
+
+    # Make sure the bot is in the channel
+    channel = request.form["channel_id"]
+    try:
+        mm.add_user_to_channel(channel, user["id"])
+    except mattermost.ApiException:
+        return "I do not have permission to join this channel"
+
+    message = f"@{victim_name}, {random.choice(list_of_insults)}"
+
+    return jsonify({
+            "response_type": "in_channel", 
+            "text": message
+    })
+
 
 # Based on the mattermost library, but that has no "since" argument
 def get_posts_for_channel(channel_id, since):
