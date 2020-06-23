@@ -62,6 +62,29 @@ def randomkick():
 
 @app.route("/russianroulette", methods=["POST"])
 def russianroulette():
+    # Make sure the bot is in the channel
+    channel = request.form["channel_id"]
+    try:
+        mm.add_user_to_channel(channel, user["id"])
+    except mattermost.ApiException:
+        return "I do not have permission to join this channel"
+
+    # 1/6 chance...
+    if random.randint(0,6) == 4:
+        message = f"BANG, @{request.form['user_name']} shot themselves."
+
+        # Kick the user
+        mm.remove_user_from_channel(channel, request.form["user_id"])
+    else:
+        message = "_click_"
+
+    return jsonify({
+            "response_type": "in_channel", 
+            "text": message
+    })
+
+@app.route("/duel", methods=["POST"])
+def duel():
 
     # Get the channel, the user and the victim
     channel = request.form['channel_id']
@@ -71,7 +94,7 @@ def russianroulette():
 
     # Verify that there is an argument (the user to pass the bomb to)
     if victim_name == '':
-        return "Use /bomb (otheruser) to pass the bomb to another user"
+        return "Use /rr (otheruser) to challenge another user to a game of russian roulette"
 
     # Remove leading @
     if victim_name[0] == "@":
@@ -94,19 +117,25 @@ def russianroulette():
     async with GAME_MUTEX:
         mm.create_post(channel, f"@{caller['username']} challenges @{victim['username']} for a game of russian roulette")
 
-        game = True
+        players = [victim,caller]
+        game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
 
-        while(game):
+        while(game_tick <= 0):
+
+            player = players[game_tick % 2]
 
             # 1/6 chance...
-            if random.randint(0,5) == 0:
-                mm.create_post(channel, "shooter takes the gun... BANG")
-
-                mm.remove_user_from_channel(channel, request.form["user_id"])
+            if random.randint(0,5) == 0 or game_tick == 1:
+                mm.create_post(channel, f"@{player['username']} takes the gun... BANG")
+                game_tick = 0
             else:
-                mm.create_post(channel, "shooter takes the gun... _click_")
+                mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
+                game_tick -= 1
                 time.sleep(1)
 
+        mm.remove_user_from_channel(channel, player["id"])
+
+    return jsonify({"text": "https://www.youtube.com/watch?v=h1PfrmCGFnk"})     
 
 # Based on the mattermost library, but that has no "since" argument
 def get_posts_for_channel(channel_id, since):
