@@ -38,7 +38,6 @@ list_of_insults =
     , "you are a sad, lonely little man, and you have my pity"
     , "why don't you go outside and play hide-and-go-fuck-yourself?"
     , "clitsquiggle"
-    , "puff"
     , "dickhead"
     , "douche canoe"
     , "asshat"
@@ -102,6 +101,5 @@ list_of_insults =
     , "you have the personality of an unflushed toilet"
     , "mouth-breather"
     , "you're useless as the g in lasagna"
-    , "I refuse to have a battle of wits against an unarmed man"
     , "If I had a gun with two bullets, and I was in a room with you, Hitler, and Bin Laden, I would shoot you twice"
     ]
