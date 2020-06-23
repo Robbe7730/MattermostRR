@@ -11,7 +11,6 @@ import configparser
 import sys
 import time
 import random
-import shelve
 
 from insults import list_of_insults
 
@@ -26,8 +25,8 @@ mm = mattermost.MMApi(config["mattermost"]["url"])
 mm.login(bearer=config["mattermost"]["token"])
 user = mm.get_user()
 
-# Setup russian roulette config
-active_users_since = int(config["russianroulette"]["active_users_since_minutes"])
+# Setup randomkick config
+active_users_since = int(config["randomkick"]["active_users_since_minutes"])
 
 def eprint(msg):
     print(msg, file=sys.stderr)
@@ -36,8 +35,6 @@ def eprint(msg):
 def randomkick():
     # Make sure the bot is in the channel
     channel = request.form["channel_id"]
-    channel_name = request.form["channel_name"]
-
     try:
         mm.add_user_to_channel(channel, user["id"])
     except mattermost.ApiException:
@@ -61,25 +58,6 @@ def randomkick():
     # Notify the channel
     mm.create_post(channel, f"Goodbye @{victim['username']}")
 
-    # Save stats
-    with shelve.open('randomkick') as db:
-        # Channel randomkick count
-        if channel_name not in db["channels"]:
-            db["channels"][channel_name] = 0
-        db["channels"][channel_name] += 1
-
-        # Victim randomkick count
-        victim_name = victim['username']
-        if victim_name not in db["victims"]:
-            db["victims"][victim_name] = 0
-        db["victims"][victim_name] += 1
-
-        # Kicker randomkick count
-        kicker_name = request.form['user_name']
-        if kicker_name not in db["kickers"]:
-            db["kickers"][kicker_name] = 0
-        db["kickers"][kicker_name] += 1
-
     # Kick them
     mm.remove_user_from_channel(channel, victim["id"])
     return f"You just killed @{victim['username']}, do you feel happy now?"
@@ -102,25 +80,6 @@ def russianroulette():
     else:
         message = "_click_"
 
-    # Save stats
-    with shelve.open('russianroulette') as db:
-        # Channel rr count
-        if channel_name not in db["channels"]:
-            db["channels"][channel_name] = 0
-        db["channels"][channel_name] += 1
-
-        # Victim total count
-        victim_name = request.form['user_name']
-        if victim_name not in db["totals"]:
-            db["totals"][victim_name] = 0
-        db["totals"][victim_name] += 1
-
-        # Victim death count
-        if message == "_click_":
-            if victim_name not in db["deaths"]:
-                db["deaths"][victim_name] = 0
-            db["deaths"][victim_name] += 1
-
     return jsonify({
             "response_type": "in_channel", 
             "text": message
@@ -137,7 +96,7 @@ def duel():
 
     # Verify that there is an argument (the user to pass the bomb to)
     if victim_name == '':
-        return "Use /rr (otheruser) to challenge another user to a game of russian roulette"
+        return "Use /duel (otheruser) to challenge another user to a game of russian roulette"
 
     # Remove leading @
     if victim_name[0] == "@":
@@ -156,12 +115,11 @@ def duel():
     except mattermost.ApiException:
         return "I do not have permission to join this channel"
 
+    with GAME_MUTEX:
+        mm.create_post(channel, f"@{caller_name} challenges @{victim['username']} for a game of russian roulette")
 
-    await GAME_MUTEX.acquire()
-    try:
-        mm.create_post(channel, f"@{caller['username']} challenges @{victim['username']} for a game of russian roulette")
-
-        players = [victim,caller]
+        # If it ducks like a quack
+        players = [victim,{"username": caller_name, "id": caller}]
         game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
         time.sleep(3)
 
@@ -177,10 +135,8 @@ def duel():
                 mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
                 game_tick -= 1
                 time.sleep(3)
-
+                               
         mm.remove_user_from_channel(channel, player["id"])
-    finally:
-        GAME_MUTEX.release()
 
     return "https://www.youtube.com/watch?v=h1PfrmCGFnk"   
 
