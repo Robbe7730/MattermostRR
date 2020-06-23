@@ -113,13 +113,13 @@ def duel():
     except mattermost.ApiException:
         return "I do not have permission to join this channel"
 
-
     with GAME_MUTEX:
         mm.create_post(channel, f"@{caller_name} challenges @{victim['username']} for a game of russian roulette")
 
         # If it ducks like a quack
         players = [victim,{"username": caller_name, "id": caller}]
         game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
+        time.sleep(3)
 
         while(game_tick > 0):
 
@@ -127,16 +127,16 @@ def duel():
 
             # 1/6 chance...
             if random.randint(0,5) == 0 or game_tick == 1:
-                mm.create_post(channel, f"@{player['username']} takes the gun... BANG")
+                mm.create_post(channel, f"@{player['username']} takes the gun... **BANG**!")
                 game_tick = 0
             else:
                 mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
                 game_tick -= 1
                 time.sleep(3)
-
+                               
         mm.remove_user_from_channel(channel, player["id"])
 
-    return jsonify({"text": "https://www.youtube.com/watch?v=h1PfrmCGFnk"})     
+    return "https://www.youtube.com/watch?v=h1PfrmCGFnk"   
 
 @app.route("/stats", methods=["GET"])
 def stats():
