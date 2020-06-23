@@ -113,6 +113,11 @@ def duel():
     except mattermost.ApiException:
         return "I do not have permission to join this channel"
 
+    # Make sure the victim is in the channel
+    channel_members = set([x["user_id"] for x in mm.get_channel_members(channel)])
+    if victim['id'] not in channel_members:
+        return f"@{victim['username']} is not in this channel"
+
     with GAME_MUTEX:
         mm.create_post(channel, f"@{caller_name} challenges @{victim['username']} for a game of russian roulette")
 
