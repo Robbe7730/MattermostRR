@@ -2,3 +2,4 @@ config.ini
 venv
 *.swp
 __pycache__
+*.db
