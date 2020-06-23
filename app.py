@@ -2,6 +2,7 @@
 
 import mattermost
 
+from threading import Lock
 from flask import request
 from flask import Flask, jsonify
 app = Flask(__name__)
@@ -11,6 +12,8 @@ import sys
 import time
 import random
 import shelve
+
+GAME_MUTEX = Lock()
 
 # Read in the config
 config = configparser.ConfigParser()
@@ -120,6 +123,60 @@ def russianroulette():
             "response_type": "in_channel", 
             "text": message
     })
+
+@app.route("/duel", methods=["POST"])
+def duel():
+
+    # Get the channel, the user and the victim
+    channel = request.form['channel_id']
+    caller = request.form['user_id']
+    caller_name = request.form['user_name']
+    victim_name = request.form['text']
+
+    # Verify that there is an argument (the user to pass the bomb to)
+    if victim_name == '':
+        return "Use /rr (otheruser) to challenge another user to a game of russian roulette"
+
+    # Remove leading @
+    if victim_name[0] == "@":
+        victim_name = victim_name[1:]
+
+    # Try to find the user
+    try:
+        victim = mm.get_user_by_username(victim_name)
+    except mattermost.ApiException:
+        return f"Could not find the user '{victim_name}'"
+
+    # Make sure the bot is in the channel
+    channel = request.form["channel_id"]
+    try:
+        mm.add_user_to_channel(channel, user["id"])
+    except mattermost.ApiException:
+        return "I do not have permission to join this channel"
+
+
+    async with GAME_MUTEX:
+        mm.create_post(channel, f"@{caller['username']} challenges @{victim['username']} for a game of russian roulette")
+
+        players = [victim,caller]
+        game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
+
+        while(game_tick <= 0):
+
+            player = players[game_tick % 2]
+
+            # 1/6 chance...
+            if random.randint(0,5) == 0 or game_tick == 1:
+                mm.create_post(channel, f"@{player['username']} takes the gun... BANG")
+                game_tick = 0
+            else:
+                mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
+                game_tick -= 1
+                time.sleep(1)
+
+        mm.remove_user_from_channel(channel, player["id"])
+
+    return jsonify({"text": "https://www.youtube.com/watch?v=h1PfrmCGFnk"})     
 
 @app.route("/stats", methods=["GET"])
 def stats():
