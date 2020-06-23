@@ -161,6 +161,7 @@ def duel():
 
         players = [victim,caller]
         game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
+        time.sleep(3)
 
         while(game_tick > 0):
 
@@ -173,7 +174,7 @@ def duel():
             else:
                 mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
                 game_tick -= 1
-                time.sleep(1)
+                time.sleep(3)
 
         mm.remove_user_from_channel(channel, player["id"])
     finally:
