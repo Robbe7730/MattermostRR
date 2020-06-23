@@ -11,6 +11,7 @@ import configparser
 import sys
 import time
 import random
+import shelve
 
 from insults import list_of_insults
 
@@ -28,6 +29,40 @@ user = mm.get_user()
 # Setup randomkick config
 active_users_since = int(config["randomkick"]["active_users_since_minutes"])
 
+# Setup shelve storage
+with shelve.open('russianroulette') as db:
+    if 'channels' not in db:
+        db['channels'] = {}
+    if 'totals' not in db:
+        db['totals'] = {}
+    if 'deaths' not in db:
+        db['deaths'] = {}
+with shelve.open('randomkick') as db:
+    if 'channels' not in db:
+        db['channels'] = {}
+    if 'victims' not in db:
+        db['victims'] = {}
+    if 'kickers' not in db:
+        db['kickers'] = {}
+with shelve.open('duel') as db:
+    if 'channels' not in db:
+        db['channels'] = {}
+    if 'victims' not in db:
+        db['victims'] = {}
+    if 'starters' not in db:
+        db['starters'] = {}
+    if 'losers' not in db:
+        db['losers'] = {}
+with shelve.open('insult') as db:
+    if 'channels' not in db:
+        db['channels'] = {}
+    if 'insults' not in db:
+        db['insults'] = {}
+    if 'insulters' not in db:
+        db['insulters'] = {}
+    if 'insultees' not in db:
+        db['insultees'] = {}
+
 def eprint(msg):
     print(msg, file=sys.stderr)
 
@@ -35,6 +70,7 @@ def eprint(msg):
 def randomkick():
     # Make sure the bot is in the channel
     channel = request.form["channel_id"]
+    channel_name = request.form["channel_name"]
     try:
         mm.add_user_to_channel(channel, user["id"])
     except mattermost.ApiException:
@@ -56,7 +92,29 @@ def randomkick():
     victim = mm.get_user(random.sample(possible_victims, 1)[0])
 
     # Notify the channel
-    mm.create_post(channel, f"Goodbye @{victim['username']}")
+    mm.create_post(channel, f"Goodbye @{victim['username']}, he was randomly kicked by @{request.form['user_name']}")
+
+
+    channel_name = request.form["channel_name"]
+
+    # Save stats
+    with shelve.open('randomkick', writeback=True) as db:
+        # Channel randomkick count
+        if channel_name not in db["channels"]:
+            db["channels"][channel_name] = 0
+        db["channels"][channel_name] += 1
+
+        # Victim randomkick count
+        victim_name = victim['username']
+        if victim_name not in db["victims"]:
+            db["victims"][victim_name] = 0
+        db["victims"][victim_name] += 1
+
+        # Kicker randomkick count
+        kicker_name = request.form['user_name']
+        if kicker_name not in db["kickers"]:
+            db["kickers"][kicker_name] = 0
+        db["kickers"][kicker_name] += 1
 
     # Kick them
     mm.remove_user_from_channel(channel, victim["id"])
@@ -66,6 +124,8 @@ def randomkick():
 def russianroulette():
     # Make sure the bot is in the channel
     channel = request.form["channel_id"]
+    channel_name = request.form["channel_name"]
+
     try:
         mm.add_user_to_channel(channel, user["id"])
     except mattermost.ApiException:
@@ -80,6 +140,26 @@ def russianroulette():
     else:
         message = "_click_"
 
+    # Save stats
+    with shelve.open('russianroulette', writeback=True) as db:
+        # Channel rr count
+        if channel_name not in db["channels"]:
+            db["channels"][channel_name] = 0
+        db["channels"][channel_name] += 1
+
+        # Victim total count
+        victim_name = request.form['user_name']
+        if victim_name not in db["totals"]:
+            db["totals"][victim_name] = 0
+        db["totals"][victim_name] += 1
+
+        # Victim death count
+        if message == "_click_":
+            if victim_name not in db["deaths"]:
+                db["deaths"][victim_name] = 0
+            db["deaths"][victim_name] += 1
+
+
     return jsonify({
             "response_type": "in_channel", 
             "text": message
@@ -90,6 +170,7 @@ def duel():
 
     # Get the channel, the user and the victim
     channel = request.form['channel_id']
+    channel_name = request.form["channel_name"]
     caller = request.form['user_id']
     caller_name = request.form['user_name']
     victim_name = request.form['text']
@@ -115,6 +196,11 @@ def duel():
     except mattermost.ApiException:
         return "I do not have permission to join this channel"
 
+    # Make sure the victim is in the channel
+    channel_members = set([x["user_id"] for x in mm.get_channel_members(channel)])
+    if victim['id'] not in channel_members:
+        return f"@{victim['username']} is not in this channel"
+
     with GAME_MUTEX:
         mm.create_post(channel, f"@{caller_name} challenges @{victim['username']} for a game of russian roulette")
 
@@ -138,19 +224,44 @@ def duel():
                                
         mm.remove_user_from_channel(channel, player["id"])
 
+    # Save stats
+    with shelve.open('duel', writeback=True) as db:
+        # Channel duel count
+        if channel_name not in db["channels"]:
+            db["channels"][channel_name] = 0
+        db["channels"][channel_name] += 1
+
+        # Victim duel count
+        victim_name = victim['username']
+        if victim_name not in db["victims"]:
+            db["victims"][victim_name] = 0
+        db["victims"][victim_name] += 1
+
+        # Starter duel count
+        starter_name = request.form['user_name']
+        if starter_name not in db["starters"]:
+            db["starters"][starter_name] = 0
+        db["starters"][starter_name] += 1
+
+        # Loser duel count
+        loser_name = player["username"]
+        if loser_name not in db["losers"]:
+            db["losers"][loser_name] = 0
+        db["losers"][loser_name] += 1
+
     return "https://www.youtube.com/watch?v=h1PfrmCGFnk"   
 
 @app.route("/stats", methods=["GET"])
 def stats():
     ret = {}
     with shelve.open('russianroulette') as db:
-        ret['channels_rr'] = db['channels']
-        ret['totals_rr'] = db['totals']
-        ret['deaths_rr'] = db['deaths']
+        ret['rr'] = dict(db)
     with shelve.open('randomkick') as db:
-        ret['channels_rk'] = db['channels']
-        ret['victims_rk'] = db['victims']
-        ret['kickers_rk'] = db['kickers']
+        ret['randomkick'] = dict(db)
+    with shelve.open('duel') as db:
+        ret['duel'] = dict(db)
+    with shelve.open('insult') as db:
+        ret['insult'] = dict(db)
     return jsonify(ret)
 
 @app.route("/insult", methods=["POST"])
@@ -159,9 +270,35 @@ def insult():
     if request.form['text'] == '':
         return "Use /insult (name) to insult another user"
 
+    insult = random.choice(list_of_insults)
+    
+    with shelve.open('insult', writeback=True) as db:
+        # Save channel insult count
+        channel_name = request.form['channel_name']
+        if channel_name not in db['channels']:
+            db['channels'][channel_name] = 0
+        db['channels'][channel_name] += 1
+
+        # Save the insult count
+        if insult not in db['insults']:
+            db['insults'][insult] = 0
+        db['insults'][insult] += 1
+
+        # Save the insultee
+        insultee = request.form['text']
+        if insultee not in db['insultees']:
+            db['insultees'][insultee] = 0
+        db['insultees'][insultee] += 1
+
+        # Save the insultee
+        insulter = request.form['user_name']
+        if insulter not in db['insulters']:
+            db['insulters'][insulter] = 0
+        db['insulters'][insulter] += 1
+
     return jsonify({
             "response_type": "in_channel", 
-            "text": f"@{request.form['text']}, {random.choice(list_of_insults)}"
+            "text": f"{request.form['text']}, {insult}"
     })
 
 
