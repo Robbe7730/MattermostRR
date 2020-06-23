@@ -156,10 +156,10 @@ def stats():
 @app.route("/insult", methods=["POST"])
 def insult():
 
-    # Get the channel, the user and the victim
+    # Get the victim
     victim_name = request.form['text']
 
-    # Verify that there is an argument (the user to pass the bomb to)
+    # Verify that there is an argument
     if victim_name == '':
         return "Use /insult (name) to insult another user"
 
