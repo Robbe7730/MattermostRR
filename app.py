@@ -53,6 +53,15 @@ with shelve.open('duel') as db:
         db['starters'] = {}
     if 'losers' not in db:
         db['losers'] = {}
+with shelve.open('insult') as db:
+    if 'channels' not in db:
+        db['channels'] = {}
+    if 'insults' not in db:
+        db['insults'] = {}
+    if 'insulters' not in db:
+        db['insulters'] = {}
+    if 'insultees' not in db:
+        db['insultees'] = {}
 
 def eprint(msg):
     print(msg, file=sys.stderr)
@@ -251,6 +260,8 @@ def stats():
         ret['randomkick'] = dict(db)
     with shelve.open('duel') as db:
         ret['duel'] = dict(db)
+    with shelve.open('insult') as db:
+        ret['insult'] = dict(db)
     return jsonify(ret)
 
 @app.route("/insult", methods=["POST"])
@@ -259,9 +270,35 @@ def insult():
     if request.form['text'] == '':
         return "Use /insult (name) to insult another user"
 
+    insult = random.choice(list_of_insults)
+    
+    with shelve.open('insult', writeback=True) as db:
+        # Save channel insult count
+        channel_name = request.form['channel_name']
+        if channel_name not in db['channels']:
+            db['channels'][channel_name] = 0
+        db['channels'][channel_name] += 1
+
+        # Save the insult count
+        if insult not in db['insults']:
+            db['insults'][insult] = 0
+        db['insults'][insult] += 1
+
+        # Save the insultee
+        insultee = request.form['text']
+        if insultee not in db['insultees']:
+            db['insultees'][insultee] = 0
+        db['insultees'][insultee] += 1
+
+        # Save the insultee
+        insulter = request.form['user_name']
+        if insulter not in db['insulters']:
+            db['insulters'][insulter] = 0
+        db['insulters'][insulter] += 1
+
     return jsonify({
             "response_type": "in_channel", 
-            "text": f"{request.form['text']}, {random.choice(list_of_insults)}"
+            "text": f"{request.form['text']}, {insult}"
     })
 
 
