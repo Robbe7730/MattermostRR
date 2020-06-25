@@ -29,39 +29,19 @@ user = mm.get_user()
 # Setup randomkick config
 active_users_since = int(config["randomkick"]["active_users_since_minutes"])
 
+# Setup duel config
+max_duel_game_tick = int(config["duel"]["max_game_tick"])
+
 # Setup shelve storage
-with shelve.open('russianroulette') as db:
-    if 'channels' not in db:
-        db['channels'] = {}
-    if 'totals' not in db:
-        db['totals'] = {}
-    if 'deaths' not in db:
-        db['deaths'] = {}
-with shelve.open('randomkick') as db:
-    if 'channels' not in db:
-        db['channels'] = {}
-    if 'victims' not in db:
-        db['victims'] = {}
-    if 'kickers' not in db:
-        db['kickers'] = {}
-with shelve.open('duel') as db:
-    if 'channels' not in db:
-        db['channels'] = {}
-    if 'victims' not in db:
-        db['victims'] = {}
-    if 'starters' not in db:
-        db['starters'] = {}
-    if 'losers' not in db:
-        db['losers'] = {}
-with shelve.open('insult') as db:
-    if 'channels' not in db:
-        db['channels'] = {}
-    if 'insults' not in db:
-        db['insults'] = {}
-    if 'insulters' not in db:
-        db['insulters'] = {}
-    if 'insultees' not in db:
-        db['insultees'] = {}
+with shelve.open('stats') as db:
+    if 'russianroulette' not in db:
+        db['russianroulette'] = []
+    if 'randomkick' not in db:
+        db['randomkick'] = []
+    if 'duel' not in db:
+        db['duel'] = []
+    if 'insult' not in db:
+        db['insult'] = []
 
 def eprint(msg):
     print(msg, file=sys.stderr)
@@ -98,23 +78,15 @@ def randomkick():
     channel_name = request.form["channel_name"]
 
     # Save stats
-    with shelve.open('randomkick', writeback=True) as db:
-        # Channel randomkick count
-        if channel_name not in db["channels"]:
-            db["channels"][channel_name] = 0
-        db["channels"][channel_name] += 1
-
-        # Victim randomkick count
+    with shelve.open('stats', writeback=True) as db:
         victim_name = victim['username']
-        if victim_name not in db["victims"]:
-            db["victims"][victim_name] = 0
-        db["victims"][victim_name] += 1
-
-        # Kicker randomkick count
         kicker_name = request.form['user_name']
-        if kicker_name not in db["kickers"]:
-            db["kickers"][kicker_name] = 0
-        db["kickers"][kicker_name] += 1
+        db['randomkick'].append({
+            "timestamp": datetime.datetime.now().isoformat(),
+            "channel_name": channel_name,
+            "kicker": kicker_name,
+            "victim": victim_name
+        })
 
     # Kick them
     mm.remove_user_from_channel(channel, victim["id"])
@@ -141,24 +113,14 @@ def russianroulette():
         message = "_click_"
 
     # Save stats
-    with shelve.open('russianroulette', writeback=True) as db:
-        # Channel russianroulette count
-        if channel_name not in db["channels"]:
-            db["channels"][channel_name] = 0
-        db["channels"][channel_name] += 1
-
-        # Victim total count
-        victim_name = request.form['user_name']
-        if victim_name not in db["totals"]:
-            db["totals"][victim_name] = 0
-        db["totals"][victim_name] += 1
-
-        # Victim death count
-        if message == "_click_":
-            if victim_name not in db["deaths"]:
-                db["deaths"][victim_name] = 0
-            db["deaths"][victim_name] += 1
-
+    with shelve.open('stats', writeback=True) as db:
+        player_name = request.form['user_name']
+        db['randomkick'].append({
+            "timestamp": datetime.datetime.now().isoformat(),
+            "channel_name": channel_name,
+            "player": player_name,
+            "died": message == "_click_"
+        })
 
     return jsonify({
             "response_type": "in_channel", 
@@ -205,18 +167,19 @@ def duel():
         mm.create_post(channel, f"@{caller_name} challenges @{victim['username']} for a game of russian roulette")
 
         # If it ducks like a quack
-        players = [victim,{"username": caller_name, "id": caller}]
-        game_tick = 21 # 21 zodat de caller zowel moet starten EN de verliezer is als game tick 1 is
+        players = [{"username": caller_name, "id": caller}, victim]
+        game_tick = 0
         time.sleep(3)
+        someone_died = False
 
-        while(game_tick > 0):
+        while(not someone_died and game_tick < max_game_ticks):
 
             player = players[game_tick % 2]
 
             # 1/6 chance...
             if random.randint(0,5) == 0 or game_tick == 1:
                 mm.create_post(channel, f"@{player['username']} takes the gun... **BANG**!")
-                game_tick = 0
+                someone_died = True
             else:
                 mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
                 game_tick -= 1
@@ -225,44 +188,16 @@ def duel():
         mm.remove_user_from_channel(channel, player["id"])
 
     # Save stats
-    with shelve.open('duel', writeback=True) as db:
-        # Channel duel count
-        if channel_name not in db["channels"]:
-            db["channels"][channel_name] = 0
-        db["channels"][channel_name] += 1
-
-        # Victim duel count
-        victim_name = victim['username']
-        if victim_name not in db["victims"]:
-            db["victims"][victim_name] = 0
-        db["victims"][victim_name] += 1
-
-        # Starter duel count
-        starter_name = request.form['user_name']
-        if starter_name not in db["starters"]:
-            db["starters"][starter_name] = 0
-        db["starters"][starter_name] += 1
-
-        # Loser duel count
-        loser_name = player["username"]
-        if loser_name not in db["losers"]:
-            db["losers"][loser_name] = 0
-        db["losers"][loser_name] += 1
+    with shelve.open('stats', writeback=True) as db:
+        db['randomkick'].append({
+            "timestamp": datetime.datetime.now().isoformat(),
+            "channel_name": channel_name,
+            "starter": caller_name,
+            "victim": victim_name,
+            "gameTick": game_tick
+        })
 
     return "https://www.youtube.com/watch?v=h1PfrmCGFnk"   
-
-@app.route("/stats", methods=["GET"])
-def stats():
-    ret = {}
-    with shelve.open('russianroulette') as db:
-        ret['russianroulette'] = dict(db)
-    with shelve.open('randomkick') as db:
-        ret['randomkick'] = dict(db)
-    with shelve.open('duel') as db:
-        ret['duel'] = dict(db)
-    with shelve.open('insult') as db:
-        ret['insult'] = dict(db)
-    return jsonify(ret)
 
 @app.route("/insult", methods=["POST"])
 def insult():
@@ -272,35 +207,29 @@ def insult():
 
     insult = random.choice(list_of_insults)
     
-    with shelve.open('insult', writeback=True) as db:
-        # Save channel insult count
+    # Save stats
+    with shelve.open('stats', writeback=True) as db:
         channel_name = request.form['channel_name']
-        if channel_name not in db['channels']:
-            db['channels'][channel_name] = 0
-        db['channels'][channel_name] += 1
-
-        # Save the insult count
-        if insult not in db['insults']:
-            db['insults'][insult] = 0
-        db['insults'][insult] += 1
-
-        # Save the insultee
-        insultee = request.form['text']
-        if insultee not in db['insultees']:
-            db['insultees'][insultee] = 0
-        db['insultees'][insultee] += 1
-
-        # Save the insultee
         insulter = request.form['user_name']
-        if insulter not in db['insulters']:
-            db['insulters'][insulter] = 0
-        db['insulters'][insulter] += 1
+        db['randomkick'].append({
+            "timestamp": datetime.datetime.now().isoformat(),
+            "channel_name": channel_name,
+            "insulter": insulter,
+            "insultee": insultee,
+            "insult": insult
+        })
 
     return jsonify({
             "response_type": "in_channel", 
             "text": f"{request.form['text']}, {insult}"
     })
 
+@app.route("/stats", methods=["GET"])
+def stats():
+    ret = {}
+    with shelve.open("stats") as db:
+        ret = dict(db)
+    return jsonify(ret)
 
 # Based on the mattermost library, but that has no "since" argument
 def get_posts_for_channel(channel_id, since):
