@@ -142,7 +142,7 @@ def russianroulette():
 
     # Save stats
     with shelve.open('russianroulette', writeback=True) as db:
-        # Channel rr count
+        # Channel russianroulette count
         if channel_name not in db["channels"]:
             db["channels"][channel_name] = 0
         db["channels"][channel_name] += 1
@@ -255,7 +255,7 @@ def duel():
 def stats():
     ret = {}
     with shelve.open('russianroulette') as db:
-        ret['rr'] = dict(db)
+        ret['russianroulette'] = dict(db)
     with shelve.open('randomkick') as db:
         ret['randomkick'] = dict(db)
     with shelve.open('duel') as db:
