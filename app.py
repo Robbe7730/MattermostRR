@@ -183,7 +183,7 @@ def duel():
                 someone_died = True
             else:
                 mm.create_post(channel, f"@{player['username']} takes the gun... _click_")
-                game_tick -= 1
+                game_tick += 1
                 time.sleep(3)
                                
         mm.remove_user_from_channel(channel, player["id"])
