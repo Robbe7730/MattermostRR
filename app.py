@@ -135,7 +135,7 @@ def duel():
     channel_name = request.form["channel_name"]
     caller = request.form['user_id']
     caller_name = request.form['user_name']
-    victim_name = request.form['text']
+    victim_name = request.form['text'].strip()
 
     # Verify that there is an argument (the user to pass the bomb to)
     if victim_name == '':
@@ -177,7 +177,7 @@ def duel():
             player = players[game_tick % 2]
 
             # 1/6 chance...
-            if random.randint(0,5) == 0 or game_tick == 1:
+            if random.randint(0,5) == 0:
                 mm.create_post(channel, f"@{player['username']} takes the gun... **BANG**!")
                 someone_died = True
             else:
