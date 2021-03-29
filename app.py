@@ -73,7 +73,7 @@ def randomkick():
     victim = mm.get_user(random.sample(possible_victims, 1)[0])
 
     # Notify the channel
-    mm.create_post(channel, f"Goodbye @{victim['username']}, he was randomly kicked by @{request.form['user_name']}")
+    mm.create_post(channel, f"Goodbye @{victim['username']}, they were randomly kicked by @{request.form['user_name']}")
 
 
     channel_name = request.form["channel_name"]
