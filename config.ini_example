@@ -10,3 +10,7 @@ active_users_since_minutes = 120
 [duel]
 
 max_game_tick = 21
+
+[stats]
+
+location = stats

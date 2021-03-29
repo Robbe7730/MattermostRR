@@ -34,7 +34,8 @@ active_users_since = int(config["randomkick"]["active_users_since_minutes"])
 duel_max_game_ticks = int(config["duel"]["max_game_tick"])
 
 # Setup shelve storage
-with shelve.open('stats') as db:
+shelve_location = config["stats"]["location"]
+with shelve.open(shelve_location) as db:
     if 'russianroulette' not in db:
         db['russianroulette'] = []
     if 'randomkick' not in db:
@@ -73,13 +74,13 @@ def randomkick():
     victim = mm.get_user(random.sample(possible_victims, 1)[0])
 
     # Notify the channel
-    mm.create_post(channel, f"Goodbye @{victim['username']}, he was randomly kicked by @{request.form['user_name']}")
+    mm.create_post(channel, f"Goodbye @{victim['username']}, they were randomly kicked by @{request.form['user_name']}")
 
 
     channel_name = request.form["channel_name"]
 
     # Save stats
-    with shelve.open('stats', writeback=True) as db:
+    with shelve.open(shelve_location, writeback=True) as db:
         victim_name = victim['username']
         kicker_name = request.form['user_name']
         db['randomkick'].append({
@@ -114,7 +115,7 @@ def russianroulette():
         message = "_click_"
 
     # Save stats
-    with shelve.open('stats', writeback=True) as db:
+    with shelve.open(shelve_location, writeback=True) as db:
         player_name = request.form['user_name']
         db['russianroulette'].append({
             "timestamp": datetime.datetime.now().isoformat(),
@@ -189,7 +190,7 @@ def duel():
         mm.remove_user_from_channel(channel, player["id"])
 
     # Save stats
-    with shelve.open('stats', writeback=True) as db:
+    with shelve.open(shelve_location, writeback=True) as db:
         db['duel'].append({
             "timestamp": datetime.datetime.now().isoformat(),
             "channel_name": channel_name,
@@ -210,7 +211,7 @@ def insult():
     insultee = request.form['text']
     
     # Save stats
-    with shelve.open('stats', writeback=True) as db:
+    with shelve.open(shelve_location, writeback=True) as db:
         channel_name = request.form['channel_name']
         insulter = request.form['user_name']
         db['insult'].append({
@@ -229,7 +230,7 @@ def insult():
 @app.route("/stats", methods=["GET"])
 def stats():
     ret = {}
-    with shelve.open("stats") as db:
+    with shelve.open(shelve_location) as db:
         ret = dict(db)
     return jsonify(ret)
 
